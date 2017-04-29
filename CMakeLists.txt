@@ -50,8 +50,9 @@ find_package(catkin REQUIRED COMPONENTS
 # Generate messages in the 'msg' folder
  add_message_files(
    FILES
-   action.msg
-   verbal_input.msg
+   VerbalRequest.msg
+   VerbalResponse.msg
+   KeyValue.msg
  )
 
 # Generate services in the 'srv' folder
