@@ -13,15 +13,24 @@ from string import ascii_lowercase
 generateSessionId = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
 
 
-def build_mock_response():
+def build_mock_response(comType, param):
     verbalInput = VerbalRequest()
     verbalInput.timestamp  = str(datetime.now())
-    verbalInput.phrase      = "Please remember that this is the kitchen"
-    verbalInput.action_id   = "navigate_to_landmark"
+    verbalInput.phrase      = "FILLER PHRASE"
+    verbalInput.action_id   = comType 
     kv1                     = KeyValue()
-    kv1.key = 'landmark'
-    kv1.value = 'table'
-    verbalInput.params      = [kv1]
+    kv2                     = KeyValue()
+    
+    if comType == "coord_nav":
+        kv1.key = "x"
+        kv1.value = param[0] 
+        kv2.key = "y"
+        kv2.value = param[1]
+        verbalInput.params      = [kv1, kv2]
+    else:
+        kv1.key = 'landmark'
+        kv1.value = param
+        verbalInput.params      = [kv1]
     return verbalInput
 
 if __name__ == "__main__":
@@ -42,9 +51,23 @@ if __name__ == "__main__":
     command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
     print "fire"
     while True:
-        command_pub.publish(build_mock_response())
+        command = raw_input("which command? {nav_to_lm=0 | create_lm=1 | nav_to_coord=2}")
+        if command == '0':
+            comType = "navigate_to_landmark"
+            param = raw_input("What is the lm name?")
+        elif command == '1':
+            comType = "create_landmark"
+            param = raw_input("What is the lm name?")
+        elif command == '2':
+            comType = "coord_nav"
+            x_c = raw_input("what is the x?")
+            y_c = raw_input("what is the y?")
+            param = (x_c, y_c) 
+        else:
+            continue
+        command_pub.publish(build_mock_response(comType, param))
         print "published"
-        time.sleep(10)
+        time.sleep(1)
 
     # queryInput = raw_input("give me your voice!")
     # payload["query"] = queryInput
