@@ -72,8 +72,12 @@ if __name__ == '__main__':
     try:
         with  sr.Microphone() as source:
             while True:
-                audio = r.listen(source)
-                keyWordCheck = r.recognize_sphinx(audio)
+                try:
+                    audio = r.listen(source)
+                    keyWordCheck = r.recognize_sphinx(audio)
+                except speech_recognition.UnknownValueError:
+                    continue
+
                 print keyWordCheck
                 if keyWordCheck == 'exit':
                     break
