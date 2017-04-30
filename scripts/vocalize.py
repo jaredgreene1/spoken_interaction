@@ -36,11 +36,13 @@ def make_bluemix_speech_request(text):
         auth=HTTPBasicAuth(USER, PASSWORD))
     return r
 
-def play_text_to_speech(response_text):
+def play_text_to_speech(response_text, filename='output.wav', play=True):
     r = make_bluemix_speech_request(response_text)
-    with open('output.wav', 'wb') as handle:
+    with open(filename, 'wb') as handle:
         for block in r.iter_content(1024):
             handle.write(block)
+    if play:
+        play_wav_file(filename)
 
 if __name__ == "__main__":
     play_text_to_speech("Go to the kitchen")
