@@ -3,15 +3,17 @@ import pyaudio
 import speech_recognition as sr
 import requests
 import pygame
-import socketHandler
 import vocalize
+import threading
+from Queue import Queue
+import socket
 
 ROBOT_NAME = "steve"
-serverIp = "128.59.15.68"
-serverPort = 8080
+peer_server_IP = "128.59.15.68"
+peer_server_port = 9010
 
-responseIP = "160.39.10.232"
-responsePort = 7070
+client_IP = "160.39.149.98"
+client_port = 7076
 robots = {}
 protocol = 'UDP'
 
@@ -36,51 +38,110 @@ protocol = 'UDP'
 #             pass
 #         for sock in error:
 #             pass
+VALID_TYPES = [
+    'SEND',
+    'VOCALIZE'
+]
 
+class Command:
+    def __init__(self, cmd_type, data):
 
+        if cmd_type not in VALID_TYPES:
+            raise Exception
 
+        self.cmd_type = cmd_type
+        self.data = data
 
+    def __repr__(self):
+        return str(self.__dict__)
 
+queue = Queue()
 
-def play_wakeup(fileName):
-    pygame.init()
-    pygame.mixer.Sound(fileName).play()
+class Listener:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.addr = (host, port)
+        self.sock = None
 
-def vocalizeResponse(response_text):
-    print "resolving response text: %s" % response_text
-    headers = {
-         'Authorization': 'Bearer d87cfe9b43a74fb19f8ebd01bc7cca12',
-         'Content-Type' : 'application/json: charset=utf-8'
-    }
-    text = {'text': response_text}
-    r = requests.get("https://api.api.ai/v1/tts", params=text, headers=headers)
-    with open("temp.wav", 'wb') as responseAudio:
-        responseAudio.write(r.content)
+    def start(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(self.addr)
 
-    play_wakeup('temp.wav')
-    return None
-    p = pyaudio.PyAudio()
-    stream = p.open(format = p.get_format_from_width(r.getsamwidth()),\
-                     channels = r.getnchannels(),
-                     rate = r.getframerate(),
-                     output = True)
-    data = r.readframes(1024)
-    while data != '':
-        stream.write(data)
-        data = r.readframes(1024)
-    stream.close()
-    p.terminate()
+        while True:
+            data, addr = self.sock.recvfrom(10000)
+            self.handle_data(data)
 
-def handle_responses(socks):
-    if socks:
-        read, write, error = socketHandler.checkForAction([socks], [socks], [socks])
-        for sock in read:
-            if protocol == 'UDP':
-                msg, address = sock.recvfrom(4096)
-            elif protocol == 'TCP':
-                msg = sock.recv(4096)
-            print "Heard response: " + msg
-            vocalize.play_text_to_speech(msg)
+    def handle_data(self, data):
+        cmd = Command('VOCALIZE', data)
+        queue.put(cmd)
+
+class Client:
+    def __init__(self):
+        pass
+
+    def start(self, host, port):
+        host = peer_server_IP
+        port = peer_server_port
+        print("Client targeting ({}:{})".format(host, port))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("160.39.149.98", 7075))
+        while True:
+            cmd = queue.get(block=True)
+            if cmd.cmd_type == 'SEND':
+                print("Trying to send {}".format(cmd.data))
+                sock.sendto(cmd.data, (host, port))
+                print("Just send {} to ({}:{})".format(cmd.data, host, port))
+            elif cmd.cmd_type == 'VOCALIZE':
+                print("Trying to vocalize '{}'".format(cmd.data))
+                vocalize.play_text_to_speech(cmd.data, filename='test.wav')
+
+def main(test):
+    if test:
+        while True:
+            text_from_speech = raw_input("give me test text: ")
+            cmd = Command('VOCALIZE', text_from_speech)
+            queue.put(cmd)
+        return
+
+    with sr.Microphone() as source:
+        r = sr.Recognizer()
+        r.adjust_for_ambient_noise(source)
+        r.dynamic_energy_threshold = True
+        r.pause_threshold = 0.5
+
+        while True:
+            print("Trying to listen")
+            try:
+                audio = r.listen(source)
+                keyWordCheck = r.recognize_sphinx(audio)
+                print(keyWordCheck)
+            except LookupError:
+                continue
+
+            if keyWordCheck == 'exit':
+                break
+            if ROBOT_NAME not in keyWordCheck:
+                continue
+
+            vocalize.play_wav_file('wakeup.wav')
+            while pygame.mixer.get_busy():
+                pass
+
+            audio = r.listen(source, 5)
+            try:
+                textFromSpeech = r.recognize_google(audio)
+            except IndexError:
+                print "No internet connection"
+
+            if len(textFromSpeech) < 0:
+                continue
+
+            message = "{}|{}|{}".format(textFromSpeech,
+                client_IP,
+                client_port)
+            cmd = Command("SEND", message)
+            queue.put(cmd)
 
 
 if __name__ == '__main__':
@@ -88,63 +149,26 @@ if __name__ == '__main__':
     #allow multiple robot ip address mappings
     if sys.argv[1] == 'test':
         test = True
-        print "testing"
-        serverPort = int(sys.argv[2])
+        peer_server_port = int(sys.argv[2])
     elif len(sys.argv) == 3:
         ROBOT_NAME = sys.argv[1]
-        port = int(sys.argv[2])
+        peer_server_port = int(sys.argv[2])
     elif len(sys.argv) == 2:
         ROBOT_NAME = sys.argv[1]
 
-    if protocol == 'UDP':
-        socket = socketHandler.buildUDPServerSock(responseIP, responsePort)
-    elif protocol == 'TCP':
-        socket = socketHandler.buildTCPClientSock(ip, port)
+    listener = Listener(client_IP, client_port)
+    listener_thread = threading.Thread(target=listener.start)
+    listener_thread.daemon = True
+    listener_thread.start()
+
+    client = Client()
+    print("Peer server is ({}:{})".format(peer_server_IP, peer_server_port))
+    client_thread = threading.Thread(target=client.start,
+        args=[peer_server_IP, peer_server_port])
+    client_thread.daemon = True
+    client_thread.start()
 
     try:
-        with  sr.Microphone() as source:
-            r = sr.Recognizer()
-            r.adjust_for_ambient_noise(source)
-            r.dynamic_energy_threshold = True
-            r.pause_threshold = 0.5
-
-
-            while True:
-                textFromSpeech = None
-                handle_responses(socket)
-                if not test:
-
-                    try:
-                        audio = r.listen(source)
-                        keyWordCheck = r.recognize_sphinx(audio)
-                    except LookupError:
-                        continue
-
-                    print keyWordCheck
-                    if keyWordCheck == 'exit':
-                        break
-                    elif ROBOT_NAME in keyWordCheck:
-                        play_wakeup('wakeup.wav')
-                        while pygame.mixer.get_busy():
-                            pass
-                        audio = r.listen(source, 5)
-                        try:
-                            textFromSpeech = r.recognize_google(audio)
-                        except IndexError:
-                            print "No internet connection"
-                else:
-                    textFromSpeech = raw_input("give me test text")
-
-
-                if textFromSpeech:
-                    print "google heard: " + textFromSpeech
-                    if protocol == 'UDP':
-                        message = textFromSpeech + "|" + responseIP + "|" + str(responsePort)
-                        print message
-                        result = socketHandler.sendUDPMessage(serverIp, serverPort, message)
-                        print result
-                    elif protocol == 'TCP':
-                        socket.send(textFromSpeech)
-    finally:
-        if socket:
-            socket.close()
+        main(test)
+    except KeyboardInterrupt:
+        exit()
