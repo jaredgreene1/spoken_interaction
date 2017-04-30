@@ -44,7 +44,7 @@ def handleResponse(response):
     msg = response.verbal_response
 
     if protocol == 'UDP':
-        sendUDPMessage(ip, port, msg)
+        sendUDPMessage(ip, int(port), msg)
 
     if protocol == 'TCP':
     #sock = infoToSocks[(ip, port)]
@@ -56,14 +56,14 @@ def handleQuery(socket):
 
     if protocol == 'UDP':
         query, clientInfo = socket.recvfrom(BUFFER_SIZE)
-        message, responseIP, responsePort = query.split("|")
+        msg, responseIP, responsePort = query.split("|")
         clientInfo = (responseIP, responsePort)
     elif protocl == 'TCP':
-        query = socket.recv(BUFFER_SIZE)
+        msg = socket.recv(BUFFER_SIZE)
         clientInfo = socksToInfo[id(socket)]
     print("I heard " + query)
     json_body = {
-        'query': [ query ],
+        'query': [ msg ],
         'lang': 'en',
         'sessionId': generateSessionId(36)
     }
