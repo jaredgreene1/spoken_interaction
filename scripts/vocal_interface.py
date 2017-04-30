@@ -38,11 +38,17 @@ def respond(socket, response):
     ##use api.ai to resolve it to a wav file and then send it as a wav. Might want to
     ##do this with async
 
-def addResponse(response):
+def handleResponse(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
+    msg = response.verbal_response
+
+    if protocol == 'UDP':
+        sendUDPMessage(ip, port, msg)
+
+    if protocol == 'TCP':
     #sock = infoToSocks[(ip, port)]
-    infoToResponse[(ip,port)] = response.verbal_response
+        infoToResponse[(ip,port)] = msg
 
 
 def handleQuery(socket):
@@ -50,6 +56,8 @@ def handleQuery(socket):
 
     if protocol == 'UDP':
         query, clientInfo = socket.recvfrom(BUFFER_SIZE)
+        message, responseIP, responsePort = query.split("|")
+        clientInfo = (responseIP, responsePort)
     elif protocl == 'TCP':
         query = socket.recv(BUFFER_SIZE)
         clientInfo = socksToInfo[id(socket)]
@@ -112,7 +120,7 @@ if __name__ == "__main__":
     rospy.init_node("vocal_request_handler")
     command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
     #add response subscription here
-    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, addResponse)
+    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handleResponse)
 
 
     # Build the serverSocket and list of open sockets

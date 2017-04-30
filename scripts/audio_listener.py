@@ -6,8 +6,11 @@ import pygame
 import socketHandler
 
 ROBOT_NAME = "steve"
-ip = "128.59.15.68"
-port = 8080
+serverIp = "128.59.15.68"
+serverPort = 8080
+
+responseIP = "160.39.10.232"
+responsePort = "7070"
 robots = {}
 protocol = 'UDP'
 
@@ -40,9 +43,9 @@ def vocalizeResponse(response_text):
     stream.close()
     p.terminate()
 
-def handle_responses():
-    if socket:
-        read, write, error = socketHandler.checkForAction([socket], [socket], [socket])
+def handle_responses(socks):
+    if socks:
+        read, write, error = socketHandler.checkForAction([socks], [socks], [socks])
         for sock in read:
             if protocol == 'UDP':
                 msg, address = sock.recvfrom(4096)
@@ -66,16 +69,18 @@ if __name__ == '__main__':
         ROBOT_NAME = sys.argv[1]
 
     if protocol == 'UDP':
-        socket = None
+        socket = socketHandler.buildUDPServerSock(responseIP, responsePort)
     elif protocol == 'TCP':
         socket = socketHandler.buildTCPClientSock(ip, port)
 
     try:
-        if not test:
-            print "not test"
-            r = sr.Recognizer()
-            with  sr.Microphone() as source:
-                while True:
+        with  sr.Microphone() as source:
+            while True:
+                handle_responses(socket)
+
+                if not test:
+                    print "not test"
+                    r = sr.Recognizer()
                     try:
                         audio = r.listen(source)
                         keyWordCheck = r.recognize_sphinx(audio)
@@ -91,14 +96,15 @@ if __name__ == '__main__':
                             pass
                         audio = r.listen(source)
                         textFromSpeech = r.recognize_google(audio)
-        elif test:
-            textFromSpeech = raw_input("give me test text")
-        print "google heard: " + textFromSpeech
-        if textFromSpeech:
-            if protocol == 'UDP':
-                socketHandler.sendUDPMessage(ip, port, textFromSpeech)
-            elif protocol == 'TCP':
-                socket.send(textFromSpeech)
+                elif test:
+                    textFromSpeech = raw_input("give me test text")
+                print "google heard: " + textFromSpeech
+                if textFromSpeech:
+                    if protocol == 'UDP':
+                        message = textFromSpeech + "|" + responseIP + "|" + responsePort
+                        socketHandler.sendUDPMessage(ip, port, textFromSpeech)
+                    elif protocol == 'TCP':
+                        socket.send(textFromSpeech)
     finally:
         if socket:
             socket.close()
