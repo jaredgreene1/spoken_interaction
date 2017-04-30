@@ -40,7 +40,7 @@ def vocalizeResponse(response_text):
     stream.close()
     p.terminate()
 
-def handle_responses()
+def handle_responses():
     if socket:
         read, write, error = socketHandler.checkForAction([socket], [socket], [socket])
         for sock in read:
@@ -77,7 +77,7 @@ if __name__ == '__main__':
                 print keyWordCheck
                 if keyWordCheck == 'exit':
                     break
-                elif ROBOT_NAME in user:
+                elif ROBOT_NAME in keyWordCheck:
                     play_wakeup('wakeup.wav')
                     while pygame.mixer.get_busy():
                         pass
@@ -90,4 +90,5 @@ if __name__ == '__main__':
                         elif protocol == 'TCP':
                             socket.send(textFromSpeech)
     finally:
-        socket.close()
+        if socket:
+            socket.close()

@@ -131,8 +131,9 @@ if __name__ == "__main__":
 
     try:
         socks.append(servSock)
-
+        print socks
         while True:
+            print "checking for action"
             ready_read, ready_write, has_error =\
                     checkForAction(socks,socks, socks)
 

@@ -23,7 +23,7 @@ def sendUDPMessage(ip, port, message):
     address = (ip,port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sent = sock.sendto(message, address)
-    sock.recvfrom(4096)
+    #sock.recvfrom(4096)
     return sent
     sock.close()
 
