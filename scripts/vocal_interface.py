@@ -41,7 +41,7 @@ def respond(socket, response):
 def addResponse(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
-    sock = infoToSocks[(ip, port)]
+    #sock = infoToSocks[(ip, port)]
     infoToResponse[(ip,port)] = response.verbal_response
 
 
