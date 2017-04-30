@@ -14,7 +14,16 @@ def play_wakeup():
     pygame.init()
     pygame.mixer.Sound('wakeup.wav').play()
 
+def vocalizeResponse(response_text):
+    print "resolving response text: %s" % response_text
 
+    headers = {
+         'Authorization': 'Bearer d87cfe9b43a74fb19f8ebd01bc7cca12',
+         'Content-Type' : 'application/json: charset=utf-8'
+     }
+     text = {'text': response.verbal_response}
+     r = requests.get("https://api.api.ai/v1/tts", params=text, headers=headers)
+     r.play()
 
 if __name__ == '__main__':
     #allow multiple robot ip address mappings
