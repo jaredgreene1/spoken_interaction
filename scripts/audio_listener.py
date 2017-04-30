@@ -4,6 +4,7 @@ import speech_recognition as sr
 import requests
 import pygame
 import socketHandler
+import vocalize
 
 ROBOT_NAME = "steve"
 serverIp = "128.59.15.68"
@@ -13,6 +14,33 @@ responseIP = "160.39.10.232"
 responsePort = 7070
 robots = {}
 protocol = 'UDP'
+
+
+# # For async... someday
+# class responseHandler(threading.Thread):
+#     def __init__(self):
+#         threading.Thread.__init__(self)
+#     def run(self):
+#         print "Starting response handler"
+#     while True:
+#         read, write, error = socketHandler.checkForAction(rcvSocks, sndSocks, [])
+#         for sock in read:
+#             if protocol == 'UDP':
+#                 msg, address = sock.recvfrom(4096)
+#             elif protocol == 'TCP':
+#                 msg = sock.recv(4096)
+#             print "Heard response: " + msg
+#             vocalizeResponse(msg)
+#
+#         for sock in write:
+#             pass
+#         for sock in error:
+#             pass
+
+
+
+
+
 
 def play_wakeup(fileName):
     pygame.init()
@@ -52,7 +80,7 @@ def handle_responses(socks):
             elif protocol == 'TCP':
                 msg = sock.recv(4096)
             print "Heard response: " + msg
-            vocalizeResponse(msg)
+            vocalize.play_text_to_speech(msg)
 
 
 if __name__ == '__main__':
@@ -75,16 +103,21 @@ if __name__ == '__main__':
 
     try:
         with  sr.Microphone() as source:
-            while True:
-                handle_responses(socket)
+            r = sr.Recognizer()
+            r.adjust_for_ambient_noise(source)
+            r.dynamic_energy_threshold = True
+            r.pause_threshold = 0.5
 
+
+            while True:
+                textFromSpeech = None
+                handle_responses(socket)
                 if not test:
-                    print "not test"
-                    r = sr.Recognizer()
+
                     try:
                         audio = r.listen(source)
                         keyWordCheck = r.recognize_sphinx(audio)
-                    except sr.UnknownValueError:
+                    except LookupError:
                         continue
 
                     print keyWordCheck
@@ -94,15 +127,22 @@ if __name__ == '__main__':
                         play_wakeup('wakeup.wav')
                         while pygame.mixer.get_busy():
                             pass
-                        audio = r.listen(source)
-                        textFromSpeech = r.recognize_google(audio)
-                elif test:
+                        audio = r.listen(source, 5)
+                        try:
+                            textFromSpeech = r.recognize_google(audio)
+                        except IndexError:
+                            print "No internet connection"
+                else:
                     textFromSpeech = raw_input("give me test text")
-                print "google heard: " + textFromSpeech
+
+
                 if textFromSpeech:
+                    print "google heard: " + textFromSpeech
                     if protocol == 'UDP':
                         message = textFromSpeech + "|" + responseIP + "|" + str(responsePort)
-                        socketHandler.sendUDPMessage(serverIp, serverPort, message)
+                        print message
+                        result = socketHandler.sendUDPMessage(serverIp, serverPort, message)
+                        print result
                     elif protocol == 'TCP':
                         socket.send(textFromSpeech)
     finally:
