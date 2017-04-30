@@ -10,12 +10,31 @@ from std_msgs.msg import String
 from spoken_interaction.msg import VerbalRequest, VerbalResponse, KeyValue
 from datetime import datetime
 
+from socketHandler import *
 from random import choice
 from string import ascii_lowercase
 
-generateSessionId = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
+generateSessionId   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
+index1      = lambda lst: [i[0] for i in lst]
+BUFFER_SIZE = 4092
 
-def customQuery(query):
+def sendResponse(socket):
+    sock = id(socket)
+    if id(socket) in sockToResponse:
+        while len(sockToResponse[sock]):
+            response = sockToResponse[sock].pop()
+            _sendResponse(socket, response)
+
+
+def _sendResponse(socket, response):
+    pass
+    ##use api.ai to resolve it to a wav file and then send it as a wav. Might want to 
+    ##do this with async
+
+
+def handleQuery(socket):
+    query = socket.recv(BUFFER_SIZE)
+
     json_body = {
         'query': [ query ],
         'lang': 'en',
@@ -28,16 +47,22 @@ def customQuery(query):
     r = requests.post("https://api.api.ai/v1/query", 
              data=json.dumps(json_body), headers=headers)
     processed_query = r.json()
-    return processed_query
+    resolvedQuery = customQuery(query)
+    rosQuery = build_response(response, socksToInfo[id(socket)])
+    command_pub.publish(rosQuery)
 
-def build_response(response):
+
+#Should not be doing custom work on this side for API.AI response params
+def build_response(response, sockInfo):
     ret = response['result']
     verbalInput = VerbalRequest()
-    verbalInput.timestamp  = str(datetime.now())
-    verbalInput.phrase      = str(ret['source']) 
-    verbalInput.action_id   = str(ret['action']) 
-    kv1                     = KeyValue() 
-    kv2                     = KeyValue()
+    verbalInput.timestamp       = str(datetime.now())
+    verbalInput.clientInfo.ip   = sockInfo[0] 
+    verbalInput.clientInfo.port = str(sockInfo[1])
+    verbalInput.phrase          = str(ret['source']) 
+    verbalInput.action_id       = str(ret['action']) 
+    kv1                         = KeyValue() 
+    kv2                         = KeyValue()
     if ret['action'] == 'navigate_to_coordinate':
         kv1.key = 'x'
         kv1.value = str(ret['parameters']['coordinate']['x'])
@@ -50,6 +75,54 @@ def build_response(response):
         verbalInput.params      = [kv1]
     return verbalInput
 
+
+if __name__ == "__main__":
+    root = "https://api.ai/v1/"
+    query = root + "query"
+
+    payload = {
+            "clientToken":"d87cfe9b43a74fb19f8ebd01bc7cca12",
+            "devToken"    :"4eab53055a564438917c196c9a0bc37e",
+            "version"     : "20150910",
+            "sessionId"   : generateSessionId(36),
+            "lang"        : 'en'
+    }
+
+    # Create the node
+    rospy.init_node("vocal_request_handler")
+    command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
+    #add response subscription here
+    
+    # Build the serverSocket and list of open sockets
+    socks       = []
+    socksToInfo = {}
+    infoToSocks = {}
+    sockToResponse = {} 
+    
+    servSock = buildTCPServerSock("128.59.15.68", 8080) #This ip/port should be a ROS parameter
+    servSock.listen(5)
+    socks.append(servSock) 
+    
+    while True:
+        ready_read, read_write, has_error =\
+                checkForAction(socks,socks, socks)
+        
+        for sock in ready_read:
+            if sock == socks[0][0]: #if serverSock has new client 
+                sock, info = sock.accept()
+                socks.append(sock)
+                socksToInfo[id(sock)]  = info
+                infoToSocks[info] = sock 
+            else:
+                handleQuery(sock)
+
+        for sock in ready_write:
+            sendResponses(sock)
+
+        for sock in has_error:
+            pass
+        
+    
 def build_mock_response(comType, param):
     verbalInput = VerbalRequest()
     verbalInput.timestamp  = str(datetime.now())
@@ -70,27 +143,9 @@ def build_mock_response(comType, param):
         verbalInput.params      = [kv1]
     return verbalInput
 
-if __name__ == "__main__":
-    root = "https://api.ai/v1/"
-    query = root + "query"
-
-    payload = {
-            "clientToken":"d87cfe9b43a74fb19f8ebd01bc7cca12",
-            "devToken"    :"4eab53055a564438917c196c9a0bc37e",
-            "version"     : "20150910",
-            "sessionId"   : generateSessionId(36),
-            "lang"        : 'en'
-    }
-
-    # Create a node
-    rospy.init_node("vocal_request_handler")
-    command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
-    while True:
-        query = udpSock.buildUdp("128.59.15.68", 8080)
-        print "I hear: " + query
-        response = customQuery(query)
-        command_pub.publish(build_response(response))
-
+    
+    
+    
     command = raw_input("which command? {nav_to_lm=0 | create_lm=1 | nav_to_coord=2 |or just type an action }")
     
     if command == '0':

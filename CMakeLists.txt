@@ -53,7 +53,8 @@ find_package(catkin REQUIRED COMPONENTS
    VerbalRequest.msg
    VerbalResponse.msg
    KeyValue.msg
- )
+   SocketInfo.msg 
+)
 
 # Generate services in the 'srv' folder
  add_service_files(
