@@ -10,7 +10,7 @@ serverIp = "128.59.15.68"
 serverPort = 8080
 
 responseIP = "160.39.10.232"
-responsePort = "7070"
+responsePort = 7070
 robots = {}
 protocol = 'UDP'
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'test':
         test = True
         print "testing"
-        port = int(sys.argv[2])
+        serverPort = int(sys.argv[2])
     elif len(sys.argv) == 3:
         ROBOT_NAME = sys.argv[1]
         port = int(sys.argv[2])
@@ -101,8 +101,8 @@ if __name__ == '__main__':
                 print "google heard: " + textFromSpeech
                 if textFromSpeech:
                     if protocol == 'UDP':
-                        message = textFromSpeech + "|" + responseIP + "|" + responsePort
-                        socketHandler.sendUDPMessage(ip, port, textFromSpeech)
+                        message = textFromSpeech + "|" + responseIP + "|" + str(responsePort)
+                        socketHandler.sendUDPMessage(serverIp, serverPort, message)
                     elif protocol == 'TCP':
                         socket.send(textFromSpeech)
     finally:
