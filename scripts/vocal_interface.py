@@ -30,7 +30,7 @@ def sendTCPResponses(socket):
 
 def sendUDPResponses(socket):
 #   TODO
-
+    pass
 def respond(socket, response):
     print "SENING AN AUDIO RESPONSE"
     socket.send(response)
@@ -133,7 +133,6 @@ if __name__ == "__main__":
         socks.append(servSock)
         print socks
         while True:
-            print "checking for action"
             ready_read, ready_write, has_error =\
                     checkForAction(socks,socks, socks)
 
@@ -150,7 +149,7 @@ if __name__ == "__main__":
                     handleQuery(sock)
 
             for sock in ready_write:
-                sendResponses(sock)
+                sendUDPResponses(sock)
 
             for sock in has_error:
                 pass
