@@ -53,46 +53,52 @@ def handle_responses():
 
 
 if __name__ == '__main__':
+    test = False
     #allow multiple robot ip address mappings
-    if len(sys.argv) > 3:
-        ROBOT_NAME = sys.argv[1]
-        ip = sys.argv[2]
-    if len(sys.argv) == 3:
+    if sys.argv[1] == 'test':
+        test = True
+        print "testing"
+        port = int(sys.argv[2])
+    elif len(sys.argv) == 3:
         ROBOT_NAME = sys.argv[1]
         port = int(sys.argv[2])
-    if len(sys.argv) == 2:
+    elif len(sys.argv) == 2:
         ROBOT_NAME = sys.argv[1]
 
-    r = sr.Recognizer()
     if protocol == 'UDP':
         socket = None
     elif protocol == 'TCP':
         socket = socketHandler.buildTCPClientSock(ip, port)
 
     try:
-        with  sr.Microphone() as source:
-            while True:
-                try:
-                    audio = r.listen(source)
-                    keyWordCheck = r.recognize_sphinx(audio)
-                except speech_recognition.UnknownValueError:
-                    continue
+        if not test:
+            print "not test"
+            r = sr.Recognizer()
+            with  sr.Microphone() as source:
+                while True:
+                    try:
+                        audio = r.listen(source)
+                        keyWordCheck = r.recognize_sphinx(audio)
+                    except sr.UnknownValueError:
+                        continue
 
-                print keyWordCheck
-                if keyWordCheck == 'exit':
-                    break
-                elif ROBOT_NAME in keyWordCheck:
-                    play_wakeup('wakeup.wav')
-                    while pygame.mixer.get_busy():
-                        pass
-                    audio = r.listen(source)
-                    textFromSpeech = r.recognize_google(audio)
-                    print "google heard: " + textFromSpeech
-                    if textFromSpeech:
-                        if protocol == 'UDP':
-                            socketHandler.sendUDPMessage(ip, port, textFromSpeech)
-                        elif protocol == 'TCP':
-                            socket.send(textFromSpeech)
+                    print keyWordCheck
+                    if keyWordCheck == 'exit':
+                        break
+                    elif ROBOT_NAME in keyWordCheck:
+                        play_wakeup('wakeup.wav')
+                        while pygame.mixer.get_busy():
+                            pass
+                        audio = r.listen(source)
+                        textFromSpeech = r.recognize_google(audio)
+        elif test:
+            textFromSpeech = raw_input("give me test text")
+        print "google heard: " + textFromSpeech
+        if textFromSpeech:
+            if protocol == 'UDP':
+                socketHandler.sendUDPMessage(ip, port, textFromSpeech)
+            elif protocol == 'TCP':
+                socket.send(textFromSpeech)
     finally:
         if socket:
             socket.close()

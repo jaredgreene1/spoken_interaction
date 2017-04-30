@@ -42,16 +42,17 @@ def addResponse(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
     sock = infoToSocks[(ip, port)]
-    sockToResponse[id(sock)] = response.verbal_response
+    infoToResponse[(ip,port)] = response.verbal_response
 
 
 def handleQuery(socket):
     print "handle the query!"
 
     if protocol == 'UDP':
-        query, address = socket.recvfrom(BUFFER_SIZE)
+        query, clientInfo = socket.recvfrom(BUFFER_SIZE)
     elif protocl == 'TCP':
         query = socket.recv(BUFFER_SIZE)
+        clientInfo = socksToInfo[id(socket)]
     print("I heard " + query)
     json_body = {
         'query': [ query ],
@@ -65,7 +66,7 @@ def handleQuery(socket):
     r = requests.post("https://api.api.ai/v1/query",
              data=json.dumps(json_body), headers=headers)
     processed_query = r.json()
-    rosQuery = build_response(processed_query, socksToInfo[id(socket)])
+    rosQuery = build_response(processed_query, clientInfo)
     command_pub.publish(rosQuery)
 
 
@@ -118,7 +119,7 @@ if __name__ == "__main__":
     socks       = []
     socksToInfo = {}
     infoToSocks = {}
-    sockToResponse = {}
+    infoToResponse = {}
 
 
     #MULTIPLE CLIENTS USING MULTIPLE PROTOCOL SHOULD BE POSSIBLE! I
