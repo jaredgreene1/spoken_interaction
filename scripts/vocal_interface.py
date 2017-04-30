@@ -18,14 +18,18 @@ from string import ascii_lowercase
 generateSessionId   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
 index1      = lambda lst: [i[0] for i in lst]
 BUFFER_SIZE = 4092
+protocol = 'UDP'
 
-def sendResponses(socket):
+
+def sendTCPResponses(socket):
     sock = id(socket)
     if id(socket) in sockToResponse:
         while len(sockToResponse[sock]):
             response = sockToResponse[sock].pop()
             respond(socket, response)
 
+def sendUDPResponses(socket):
+#   TODO
 
 def respond(socket, response):
     print "SENING AN AUDIO RESPONSE"
@@ -43,7 +47,11 @@ def addResponse(response):
 
 def handleQuery(socket):
     print "handle the query!"
-    query = socket.recv(BUFFER_SIZE)
+
+    if protocol == 'UDP':
+        query, address = socket.recvfrom(BUFFER_SIZE)
+    elif protocl == 'TCP':
+        query = socket.recv(BUFFER_SIZE)
     print("I heard " + query)
     json_body = {
         'query': [ query ],
@@ -85,6 +93,8 @@ def build_response(response, sockInfo):
     return verbalInput
 
 
+
+
 if __name__ == "__main__":
     root = "https://api.ai/v1/"
     query = root + "query"
@@ -110,9 +120,16 @@ if __name__ == "__main__":
     infoToSocks = {}
     sockToResponse = {}
 
-    servSock = buildTCPServerSock("128.59.15.68", int(sys.argv[1])) #This ip/port should be a ROS parameter
-    try:
+
+    #MULTIPLE CLIENTS USING MULTIPLE PROTOCOL SHOULD BE POSSIBLE! I
+    #THINK THE SOCKETS ARE Protocol/IP/Port specific
+    if protocol == 'UDP':
+        servSock = buildUDPServerSock("128.59.15.68", int(sys.argv[1]))
+    elif protocol == 'TCP':
+        servSock = buildTCPServerSock("128.59.15.68", int(sys.argv[1])) #This ip/port should be a ROS parameter
         servSock.listen(5)
+
+    try:
         socks.append(servSock)
 
         while True:
@@ -121,7 +138,7 @@ if __name__ == "__main__":
 
             for sock in ready_read:
                 print "found a message!"
-                if sock == socks[0]: #if serverSock has new client
+                if sock == socks[0] and protocol == 'TCP': #if serverSock has new client
                     print "it's a new client!"
                     sock, info = sock.accept()
                     socks.append(sock)
@@ -139,44 +156,48 @@ if __name__ == "__main__":
     finally:
         servSock.close()
 
-def build_mock_response(comType, param):
-    verbalInput = VerbalRequest()
-    verbalInput.timestamp  = str(datetime.now())
-    verbalInput.phrase      = "FILLER PHRASE"
-    verbalInput.action_id   = comType
-    kv1                     = KeyValue()
-    kv2                     = KeyValue()
-
-    if comType == "navigate_to_coordinate":
-        kv1.key = "x"
-        kv1.value = param[0]
-        kv2.key = "y"
-        kv2.value = param[1]
-        verbalInput.params      = [kv1, kv2]
-    else:
-        kv1.key = 'landmark'
-        kv1.value = param
-        verbalInput.params      = [kv1]
-    return verbalInput
 
 
-
-
-    command = raw_input("which command? {nav_to_lm=0 | create_lm=1 | nav_to_coord=2 |or just type an action }")
-
-    if command == '0':
-        comType = "navigate_to_landmark"
-        param = raw_input("What is the lm name?")
-    elif command == '1':
-        comType = "build_landmark"
-        param = raw_input("What is the lm name?")
-    elif command == '2':
-        comType = "navigate_to_coordinate"
-        x_c = raw_input("what is the x?")
-        y_c = raw_input("what is the y?")
-        param = (x_c, y_c)
-    else:
-        response = customQuery(command)
-        command_pub.publish(build_response(response))
-       # continue
-    command_pub.publish(build_mock_response(comType, param))
+#
+#
+# def build_mock_response(comType, param):
+#     verbalInput = VerbalRequest()
+#     verbalInput.timestamp  = str(datetime.now())
+#     verbalInput.phrase      = "FILLER PHRASE"
+#     verbalInput.action_id   = comType
+#     kv1                     = KeyValue()
+#     kv2                     = KeyValue()
+#
+#     if comType == "navigate_to_coordinate":
+#         kv1.key = "x"
+#         kv1.value = param[0]
+#         kv2.key = "y"
+#         kv2.value = param[1]
+#         verbalInput.params      = [kv1, kv2]
+#     else:
+#         kv1.key = 'landmark'
+#         kv1.value = param
+#         verbalInput.params      = [kv1]
+#     return verbalInput
+#
+#
+#
+#
+#     command = raw_input("which command? {nav_to_lm=0 | create_lm=1 | nav_to_coord=2 |or just type an action }")
+#
+#     if command == '0':
+#         comType = "navigate_to_landmark"
+#         param = raw_input("What is the lm name?")
+#     elif command == '1':
+#         comType = "build_landmark"
+#         param = raw_input("What is the lm name?")
+#     elif command == '2':
+#         comType = "navigate_to_coordinate"
+#         x_c = raw_input("what is the x?")
+#         y_c = raw_input("what is the y?")
+#         param = (x_c, y_c)
+#     else:
+#         response = customQuery(command)
+#         command_pub.publish(build_response(response))
+#        # continue
+#     command_pub.publish(build_mock_response(comType, param))
