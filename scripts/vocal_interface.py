@@ -5,6 +5,7 @@ import pprint
 import requests
 import rospy
 import time
+import sys
 import json
 from std_msgs.msg import String
 from spoken_interaction.msg import VerbalRequest, VerbalResponse, KeyValue
@@ -18,23 +19,39 @@ generateSessionId   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x
 index1      = lambda lst: [i[0] for i in lst]
 BUFFER_SIZE = 4092
 
-def sendResponse(socket):
+def sendResponses(socket):
     sock = id(socket)
     if id(socket) in sockToResponse:
         while len(sockToResponse[sock]):
             response = sockToResponse[sock].pop()
-            _sendResponse(socket, response)
+            respond(socket, response)
 
 
-def _sendResponse(socket, response):
-    pass
+def respond(socket, response):
+    print "SENING AN AUDIO RESPONSE"
+    socket.send(response) 
+    
     ##use api.ai to resolve it to a wav file and then send it as a wav. Might want to 
     ##do this with async
 
+def addResponse(response):
+    headers = {
+        'Authorization': 'Bearer d87cfe9b43a74fb19f8ebd01bc7cca12',
+        'Content-Type' : 'application/json: charset=utf-8'
+    }
+    ip = response.clientInfo.ip
+    port = response.clientInfo.port
+    text = {'text': response.verbal_response}
+    r = requests.get("https://api.api.ai/v1/tts", params=text, headers=headers)
+    print "I think this worked"
+    sock = infoToSocks[(ip, port)]
+    sockToResponse[id(sock)] = r
+
 
 def handleQuery(socket):
+    print "handle the query!"
     query = socket.recv(BUFFER_SIZE)
-
+    print("I heard " + query)
     json_body = {
         'query': [ query ],
         'lang': 'en',
@@ -47,8 +64,7 @@ def handleQuery(socket):
     r = requests.post("https://api.api.ai/v1/query", 
              data=json.dumps(json_body), headers=headers)
     processed_query = r.json()
-    resolvedQuery = customQuery(query)
-    rosQuery = build_response(response, socksToInfo[id(socket)])
+    rosQuery = build_response(processed_query, socksToInfo[id(socket)])
     command_pub.publish(rosQuery)
 
 
@@ -92,37 +108,44 @@ if __name__ == "__main__":
     rospy.init_node("vocal_request_handler")
     command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
     #add response subscription here
-    
+    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, addResponse) 
+
+
     # Build the serverSocket and list of open sockets
     socks       = []
     socksToInfo = {}
     infoToSocks = {}
     sockToResponse = {} 
     
-    servSock = buildTCPServerSock("128.59.15.68", 8080) #This ip/port should be a ROS parameter
-    servSock.listen(5)
-    socks.append(servSock) 
-    
-    while True:
-        ready_read, read_write, has_error =\
-                checkForAction(socks,socks, socks)
+    servSock = buildTCPServerSock("128.59.15.68", int(sys.argv[1])) #This ip/port should be a ROS parameter
+    try:    
+        servSock.listen(5)
+        socks.append(servSock) 
         
-        for sock in ready_read:
-            if sock == socks[0][0]: #if serverSock has new client 
-                sock, info = sock.accept()
-                socks.append(sock)
-                socksToInfo[id(sock)]  = info
-                infoToSocks[info] = sock 
-            else:
-                handleQuery(sock)
+        while True:
+            ready_read, ready_write, has_error =\
+                    checkForAction(socks,socks, socks)
+            
+            for sock in ready_read:
+                print "found a message!"
+                if sock == socks[0]: #if serverSock has new client 
+                    print "it's a new client!"
+                    sock, info = sock.accept()
+                    socks.append(sock)
+                    socksToInfo[id(sock)]  = info
+                    infoToSocks[info] = sock 
+                else:
+                    print "it's from an existing connection!"
+                    handleQuery(sock)
 
-        for sock in ready_write:
-            sendResponses(sock)
+            for sock in ready_write:
+                sendResponses(sock)
 
-        for sock in has_error:
-            pass
+            for sock in has_error:
+                pass
+    finally:
+        servSock.close()
         
-    
 def build_mock_response(comType, param):
     verbalInput = VerbalRequest()
     verbalInput.timestamp  = str(datetime.now())
