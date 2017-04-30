@@ -2,11 +2,13 @@ import argparse
 import unittest
 
 def main():
+    args = parse_args()
+
+def parse_args():
     parser = argparse.ArgumentParser()
     parser = create_parser(parser)
     args = parser.parse_args()
-    print(args.client_ip)
-    print(args)
+    return args
 
 def create_parser(parser):
     parser.add_argument(metavar='client-ip',
