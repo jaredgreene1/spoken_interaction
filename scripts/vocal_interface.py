@@ -77,15 +77,15 @@ def build_response(response, sockInfo):
     verbalInput.timestamp       = str(datetime.now())
     verbalInput.clientInfo.ip   = sockInfo[0]
     verbalInput.clientInfo.port = str(sockInfo[1])
-    verbalInput.phrase          = str(ret['source'])
-    verbalInput.action_id       = str(ret['action'])
+    verbalInput.phrase          = str(result['source'])
+    verbalInput.action_id       = str(result['action'])
     parameter_keys = result['parameters'].keys()
-    parameters[]
+    parameters = []
     for key in parameter_keys:
         new_param       = KeyValue()
-        new_param.key   = key
-        new_param.value = result['parameters'][key]
-        parameters.append[new_param]
+        new_param.key   = str(key)
+        new_param.value = str(result['parameters'][key])
+        parameters.append(new_param)
     verbalInput.parameters = parameters
     return verbalInput
 
@@ -147,7 +147,8 @@ if __name__ == "__main__":
                     handleQuery(sock)
 
             for sock in ready_write:
-                sendUDPResponses(sock)
+                pass
+                # sendUDPResponses(sock)
 
             for sock in has_error:
                 pass
