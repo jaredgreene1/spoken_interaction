@@ -19,11 +19,11 @@ BUFFER_SIZE = 4092
 protocol = 'UDP'
 
 def handle_response(response):
-    ip = response.client_info.ip
-    port = response.client_info.port
+    ip = response.clientInfo.ip
+    port = response.clientInfo.port
     msg = response.verbal_response
     if protocol == 'UDP':
-        sendUDPMessage(ip, int(port), msg)
+        send_udp_message(ip, int(port), msg)
 
 def handle_query(socket):
     #TODO add a logger out here
@@ -31,8 +31,11 @@ def handle_query(socket):
         query, client_info = socket.recvfrom(BUFFER_SIZE)
         msg, response_ip, response_port = query.split("|")
         client_info = (response_ip, response_port)
-    processed_query = resolve_query_with_api_ai(query, API_AI_CLIENT_ACCESS_TOKEN)
+    processed_query = resolve_query_with_api_ai(msg, API_AI_CLIENT_ACCESS_TOKEN)
+    print processed_query
+    print "prcoessing"
     ros_query = build_response(processed_query, client_info)
+    print ros_query 
     command_pub.publish(ros_query)
 
 def resolve_query_with_api_ai(text_to_process, api_id):
@@ -41,19 +44,23 @@ def resolve_query_with_api_ai(text_to_process, api_id):
         'query': [ text_to_process ],
         'lang': 'en',
         'sessionId': generate_session_id(36)
+        }
     headers = {
-        'Authorization': authorization
-        'Content-Type' : 'application/json: charset=utf-8'}
+        'Authorization': authorization,
+        'Content-Type' : 'application/json: charset=utf-8'
+        }
     r = requests.post("https://api.api.ai/v1/query",
              data=json.dumps(json_body), headers=headers)
-    return processed_query = r.json()
+    processed_query = r.json()
+    return processed_query
 
 def build_response(response, sockInfo):
+    print "building response"
     result      = response['result']
     verbal_req = VerbalRequest()
     verbal_req.timestamp        = str(datetime.now())
-    verbal_req.client_info.ip   = sockInfo[0]
-    verbal_req.client_info.port = str(sockInfo[1])
+    verbal_req.clientInfo.ip   = sockInfo[0]
+    verbal_req.clientInfo.port = str(sockInfo[1])
     verbal_req.phrase           = str(result['source'])
     verbal_req.action_id        = str(result['action'])
     parameter_keys = result['parameters'].keys()
@@ -67,28 +74,27 @@ def build_response(response, sockInfo):
     return verbal_req
 
 def main():
-    rospy.init_node("vocal_request_handler")
-    command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
-    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handle_response)
-    socks       = []
-
     if protocol == 'UDP':
-        servSock = build_udp_server_sock(server_ip_address, server_port_number))
+        serv_sock = build_udp_server_sock(server_ip_address, server_port_number)
     try:
-        socks.append(servSock)
+        socks.append(serv_sock)
         while True:
             ready_read, ready_write, has_error =\
                     check_socks_for_action(socks,socks, socks)
             for sock in ready_read:
-                handleQuery(sock)
+                handle_query(sock)
             for sock in ready_write:
                 pass
             for sock in has_error:
                 pass
     finally:
-        servSock.close()
+        serv_sock.close()
 
 if __name__ == "__main__":
-    server_port_number = sys.argv[1]
+    rospy.init_node("vocal_request_handler")
+    command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
+    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handle_response)
+    socks       = []
+    server_port_number = int(sys.argv[1])
     server_ip_address  = sys.argv[2]
     main()
