@@ -8,25 +8,25 @@ import vocalize
 from parser import parse_args
 
 # # For async... someday
-# class responseHandler(threading.Thread):
-#     def __init__(self):
-#         threading.Thread.__init__(self)
-#     def run(self):
-#         print "Starting response handler"
-#     while True:
-#         read, write, error = socketHandler.checkForAction(rcvSocks, sndSocks, [])
-#         for sock in read:
-#             if protocol == 'UDP':
-#                 msg, address = sock.recvfrom(4096)
-#             elif protocol == 'TCP':
-#                 msg = sock.recv(4096)
-#             print "Heard response: " + msg
-#             vocalize_response(msg)
-#
-#         for sock in write:
-#             pass
-#         for sock in error:
-#             pass
+class responseHandler(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+    def run(self):
+        print "Starting response handler"
+    while True:
+        read, write, error = socketHandler.checkForAction(rcvSocks, sndSocks, [])
+        for sock in read:
+            if protocol == 'UDP':
+                msg, address = sock.recvfrom(4096)
+            elif protocol == 'TCP':
+                msg = sock.recv(4096)
+            print "Heard response: " + msg
+            vocalize_response(msg)
+
+        for sock in write:
+            pass
+        for sock in error:
+            pass
 
 def get_wake_up_response(robots):
     k = len(robots)
@@ -40,6 +40,12 @@ def get_wake_up_response(robots):
     if k > 3:
         wake_up_response += ". Quite a big group we've got here... "
     return wake_up_response
+
+def get_bots(command_phrase):
+    if 'everyone' in command_phrase:
+        return robot_army.keys()
+    else:
+        return [robot_name for robot_name in robot_army.keys() if robot_name in command_phrase]
 
 
 def play_wakeup(fileName):
@@ -87,7 +93,7 @@ def build_bot_army(file_name):
     bots = open(file_name, 'r')
     for robot in bots:
         server_ip, server_port, robot_name = [i.strip() for i in robot.split("|")]
-        robot_army[robotName] = (server_ip, int(server_port))
+        robot_army[robot_name] = (server_ip, int(server_port))
     return robot_army
 
 def main():
@@ -103,48 +109,49 @@ def main():
             r.dynamic_energy_threshold = True
             r.pause_threshold = 0.5
 
-        while True:
-            text_from_speech = None
-            handle_responses(socket)
-            if test:
-                key_word_check = raw_input("Who would you like to command? ")
-                print key_word_check
-            if not test:
-                try:
-                    audio = r.listen(source)
-                    key_word_check = r.recognize_sphinx(audio)
-                except LookupError:
-                    continue
-            print key_word_check
-            bots_addressed = [robot_name for robot_name in robot_army.keys() if robot_name in key_word_check]
-            print "You're commanding the following robots: "
-            print bots_addressed
-
-            if key_word_check == 'exit':
-                exit()
-
-            elif bots_addressed:
-                wake_up_response = get_wake_up_response(bots_addressed)
-                play_text_to_speech(wake_up_response)
-                while pygame.mixer.get_busy():
-                    pass
+            while True:
+                text_from_speech = None
+                handle_responses(socket)
                 if test:
-                    text_from_speech = raw_input("What would you like us to do?\n")
-                else:
-                    audio = r.listen(source)
+                    key_word_check = raw_input("Who would you like to command? ")
+                    print key_word_check
+                if not test:
                     try:
-                        text_from_speech = r.recognize_google(audio)
-                    except IndexError:
-                        print "No internet connection"
+                        audio = r.listen(source)
+                        key_word_check = r.recognize_sphinx(audio)
+                    except LookupError:
+                        continue
+                print key_word_check
+                bots_addressed = get_bots(key_word_check)
+
+                print "You're commanding the following robots: "
+                print bots_addressed
+
+                if key_word_check == 'exit':
+                    exit()
+
+                elif bots_addressed:
+                    wake_up_response = get_wake_up_response(bots_addressed)
+                    vocalize.play_text_to_speech(wake_up_response)
+                    while pygame.mixer.get_busy():
+                        pass
+                    if test:
+                        text_from_speech = raw_input("What would you like us to do?\n")
+                    else:
+                        audio = r.listen(source)
+                        try:
+                            text_from_speech = r.recognize_google(audio)
+                        except IndexError:
+                            print "No internet connection"
                 if text_from_speech:
                     print "google heard: " + text_from_speech
                     if protocol == 'UDP':
                         message = text_from_speech + "|" + response_ip + "|" + str(response_port)
                         print message
                         for bot_name in bots_addressed:
-                            severIp, serverPort = robot_army[bot_name]
+                            server_ip, server_port = robot_army[bot_name]
                             print "Sending command to: %s" % bot_name
-                            socketHandler.sendUDPMessage(serverIp, serverPort, message)
+                            socketHandler.sendUDPMessage(server_ip, server_port, message)
 
                     #TCP HAS NOT BEEN REFACTORED FOR THE ROBOT MAP
                     elif protocol == 'TCP':
@@ -163,7 +170,7 @@ if __name__ == '__main__':
         response_port = args['response_port']
         if args['single']:
             server_ip, server_port, robot_name = args['single']
-            robot_army[robot_name] = (server_ip, server_port)
+            robot_army[robot_name] = (server_ip, int(server_port))
         elif args['multiple']:
             robot_army = build_bot_army(args['multiple'])
         main()
@@ -177,9 +184,9 @@ if __name__ == '__main__':
     # testing -t for entry using commandline (uses voice by default)
     # <clientIp> <clientPort>
     # server {
-    #             single server -s <serverIp> <serverPort> [ROBOT_NAME] DEFAULT is steve
+    #             single server -s <server_ip> <server_port> [ROBOT_NAME] DEFAULT is steve
     #             OR
-    #             multiple servers -m <fileName> which contains serverIp,serverPort,ROBOT_NAME (value separated by commans, entries separated by newlines)
+    #             multiple servers -m <fileName> which contains server_ip,server_port,ROBOT_NAME (value separated by commans, entries separated by newlines)
     #         }
     #     '''
     # audio_listener 120.12.3.10 8080 -t  -m robots.txt
@@ -209,14 +216,14 @@ if __name__ == '__main__':
     #         print "testing mode engaged"
     #         testing = TRUE
     #     if sys.argv[inc] == '-s':
-    #         serverIP   = sys.argv[inc + 1]
-    #         serverPort = int(sys.argv[inc + 2])
+    #         server_ip   = sys.argv[inc + 1]
+    #         server_port = int(sys.argv[inc + 2])
     #         inc += 2
     #         if inc < size:
     #             inc += 1
     #             ROBOT_NAME = sys.argv[inc]
-    #             robot_army[ROBOT_NAME] = (serverIp, serverPort)
-    #         print "single robot usage: %s | %d | %s " %(serverIp, serverPort, ROBOT_NAME)
+    #             robot_army[ROBOT_NAME] = (server_ip, server_port)
+    #         print "single robot usage: %s | %d | %s " %(server_ip, server_port, ROBOT_NAME)
     #     elif sys.argv[inc] == "-m":
     #         print "building robot map"
     #         robot_army = buildBotMap(sys.argv[inc+1])
