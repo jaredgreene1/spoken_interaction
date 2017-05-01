@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import udpSock
-import cherrypy
 import pprint
 import requests
 import rospy
@@ -10,75 +8,54 @@ import json
 from std_msgs.msg import String
 from spoken_interaction.msg import VerbalRequest, VerbalResponse, KeyValue
 from datetime import datetime
-
-from socketHandler import *
+from socket_handler import *
 from random import choice
 from string import ascii_lowercase
 
-generateSessionId   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
+API_AI_CLIENT_ACCESS_TOKEN = 'd87cfe9b43a74fb19f8ebd01bc7cca12'
+generate_session_id   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
 index1      = lambda lst: [i[0] for i in lst]
 BUFFER_SIZE = 4092
 protocol = 'UDP'
 
-#TCP Methods have not been kept up following UDP switch
-def sendTCPResponses(socket):
-    sock = id(socket)
-    if id(socket) in sockToResponse:
-        while len(sockToResponse[sock]):
-            response = sockToResponse[sock].pop()
-            respond(socket, response)
-
-#TCP Methods have not been kept up following UDP switch
-def respond(socket, response):
-    socket.send(response)
-
-def handleResponse(response):
-    ip = response.clientInfo.ip
-    port = response.clientInfo.port
+def handle_response(response):
+    ip = response.client_info.ip
+    port = response.client_info.port
     msg = response.verbal_response
-
     if protocol == 'UDP':
         sendUDPMessage(ip, int(port), msg)
 
-    if protocol == 'TCP':
-    #sock = infoToSocks[(ip, port)]
-        infoToResponse[(ip,port)] = msg
-
-
-def handleQuery(socket):
+def handle_query(socket):
+    #TODO add a logger out here
     if protocol == 'UDP':
-        query, clientInfo = socket.recvfrom(BUFFER_SIZE)
-        msg, responseIP, responsePort = query.split("|")
-        clientInfo = (responseIP, responsePort)
-    elif protocl == 'TCP':
-        msg = socket.recv(BUFFER_SIZE)
-        clientInfo = socksToInfo[id(socket)]
+        query, client_info = socket.recvfrom(BUFFER_SIZE)
+        msg, response_ip, response_port = query.split("|")
+        client_info = (response_ip, response_port)
+    processed_query = resolve_query_with_api_ai(query, API_AI_CLIENT_ACCESS_TOKEN)
+    ros_query = build_response(processed_query, client_info)
+    command_pub.publish(ros_query)
 
+def resolve_query_with_api_ai(text_to_process, api_id):
+    authorization = 'Bearer ' + api_id
     json_body = {
-        'query': [ msg ],
+        'query': [ text_to_process ],
         'lang': 'en',
-        'sessionId': generateSessionId(36)
-    }
+        'sessionId': generate_session_id(36)
     headers = {
-        'Authorization': 'Bearer d87cfe9b43a74fb19f8ebd01bc7cca12',
-        'Content-Type' : 'application/json: charset=utf-8'
-    }
+        'Authorization': authorization
+        'Content-Type' : 'application/json: charset=utf-8'}
     r = requests.post("https://api.api.ai/v1/query",
              data=json.dumps(json_body), headers=headers)
-    processed_query = r.json()
-    rosQuery = build_response(processed_query, clientInfo)
-    command_pub.publish(rosQuery)
+    return processed_query = r.json()
 
-
-#Should not be doing custom work on this side for API.AI response params
 def build_response(response, sockInfo):
-    result = response['result']
-    verbalInput = VerbalRequest()
-    verbalInput.timestamp       = str(datetime.now())
-    verbalInput.clientInfo.ip   = sockInfo[0]
-    verbalInput.clientInfo.port = str(sockInfo[1])
-    verbalInput.phrase          = str(result['source'])
-    verbalInput.action_id       = str(result['action'])
+    result      = response['result']
+    verbal_req = VerbalRequest()
+    verbal_req.timestamp        = str(datetime.now())
+    verbal_req.client_info.ip   = sockInfo[0]
+    verbal_req.client_info.port = str(sockInfo[1])
+    verbal_req.phrase           = str(result['source'])
+    verbal_req.action_id        = str(result['action'])
     parameter_keys = result['parameters'].keys()
     parameters = []
     for key in parameter_keys:
@@ -86,117 +63,32 @@ def build_response(response, sockInfo):
         new_param.key   = str(key)
         new_param.value = str(result['parameters'][key])
         parameters.append(new_param)
-    verbalInput.parameters = parameters
-    return verbalInput
+    verbal_req.parameters = parameters
+    return verbal_req
 
-
-
-
-if __name__ == "__main__":
-    root = "https://api.ai/v1/"
-    server_ip_address = sys.argv[2]
-
-    query = root + "query"
-    payload = {
-            "clientToken":"d87cfe9b43a74fb19f8ebd01bc7cca12",
-            "devToken"    :"4eab53055a564438917c196c9a0bc37e",
-            "version"     : "20150910",
-            "sessionId"   : generateSessionId(36),
-            "lang"        : 'en'
-    }
-
-    # Create the node
+def main():
     rospy.init_node("vocal_request_handler")
     command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
-    #add response subscription here
-    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handleResponse)
-
-
-    # Build the serverSocket and list of open sockets
+    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handle_response)
     socks       = []
-    socksToInfo = {}
-    infoToSocks = {}
-    infoToResponse = {}
 
-
-    #MULTIPLE CLIENTS USING MULTIPLE PROTOCOL SHOULD BE POSSIBLE! I
-    #THINK THE SOCKETS ARE Protocol/IP/Port specific
     if protocol == 'UDP':
-        servSock = buildUDPServerSock(server_ip_address, int(sys.argv[1]))
-    elif protocol == 'TCP':
-        servSock = buildTCPServerSock("128.59.15.68", int(sys.argv[1])) #This ip/port should be a ROS parameter
-        servSock.listen(5)
-
+        servSock = build_udp_server_sock(server_ip_address, server_port_number))
     try:
         socks.append(servSock)
-        print socks
         while True:
             ready_read, ready_write, has_error =\
-                    checkForAction(socks,socks, socks)
-
+                    check_socks_for_action(socks,socks, socks)
             for sock in ready_read:
-                print "found a message!"
-                if sock == socks[0] and protocol == 'TCP': #if serverSock has new client
-                    print "it's a new client!"
-                    sock, info = sock.accept()
-                    socks.append(sock)
-                    socksToInfo[id(sock)]  = info
-                    infoToSocks[info] = sock
-                else:
-                    print "it's from an existing connection!"
-                    handleQuery(sock)
-
+                handleQuery(sock)
             for sock in ready_write:
                 pass
-                # sendUDPResponses(sock)
-
             for sock in has_error:
                 pass
     finally:
         servSock.close()
 
-
-
-#
-#
-# def build_mock_response(comType, param):
-#     verbalInput = VerbalRequest()
-#     verbalInput.timestamp  = str(datetime.now())
-#     verbalInput.phrase      = "FILLER PHRASE"
-#     verbalInput.action_id   = comType
-#     kv1                     = KeyValue()
-#     kv2                     = KeyValue()
-#
-#     if comType == "navigate_to_coordinate":
-#         kv1.key = "x"
-#         kv1.value = param[0]
-#         kv2.key = "y"
-#         kv2.value = param[1]
-#         verbalInput.params      = [kv1, kv2]
-#     else:
-#         kv1.key = 'landmark'
-#         kv1.value = param
-#         verbalInput.params      = [kv1]
-#     return verbalInput
-#
-#
-#
-#
-#     command = raw_input("which command? {nav_to_lm=0 | create_lm=1 | nav_to_coord=2 |or just type an action }")
-#
-#     if command == '0':
-#         comType = "navigate_to_landmark"
-#         param = raw_input("What is the lm name?")
-#     elif command == '1':
-#         comType = "build_landmark"
-#         param = raw_input("What is the lm name?")
-#     elif command == '2':
-#         comType = "navigate_to_coordinate"
-#         x_c = raw_input("what is the x?")
-#         y_c = raw_input("what is the y?")
-#         param = (x_c, y_c)
-#     else:
-#         response = customQuery(command)
-#         command_pub.publish(build_response(response))
-#        # continue
-#     command_pub.publish(build_mock_response(comType, param))
+if __name__ == "__main__":
+    server_port_number = sys.argv[1]
+    server_ip_address  = sys.argv[2]
+    main()
