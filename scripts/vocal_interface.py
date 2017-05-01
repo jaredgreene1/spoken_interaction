@@ -20,7 +20,7 @@ index1      = lambda lst: [i[0] for i in lst]
 BUFFER_SIZE = 4092
 protocol = 'UDP'
 
-
+#TCP Methods have not been kept up following UDP switch
 def sendTCPResponses(socket):
     sock = id(socket)
     if id(socket) in sockToResponse:
@@ -28,11 +28,8 @@ def sendTCPResponses(socket):
             response = sockToResponse[sock].pop()
             respond(socket, response)
 
-def sendUDPResponses(socket):
-#   TODO
-    pass
+#TCP Methods have not been kept up following UDP switch
 def respond(socket, response):
-    print "SENING AN AUDIO RESPONSE"
     socket.send(response)
 
 def handleResponse(response):
@@ -49,8 +46,6 @@ def handleResponse(response):
 
 
 def handleQuery(socket):
-    print "handle the query!"
-
     if protocol == 'UDP':
         query, clientInfo = socket.recvfrom(BUFFER_SIZE)
         msg, responseIP, responsePort = query.split("|")
@@ -58,7 +53,7 @@ def handleQuery(socket):
     elif protocl == 'TCP':
         msg = socket.recv(BUFFER_SIZE)
         clientInfo = socksToInfo[id(socket)]
-    print("I heard " + query)
+
     json_body = {
         'query': [ msg ],
         'lang': 'en',
@@ -77,25 +72,21 @@ def handleQuery(socket):
 
 #Should not be doing custom work on this side for API.AI response params
 def build_response(response, sockInfo):
-    ret = response['result']
+    result = response['result']
     verbalInput = VerbalRequest()
     verbalInput.timestamp       = str(datetime.now())
     verbalInput.clientInfo.ip   = sockInfo[0]
     verbalInput.clientInfo.port = str(sockInfo[1])
     verbalInput.phrase          = str(ret['source'])
     verbalInput.action_id       = str(ret['action'])
-    kv1                         = KeyValue()
-    kv2                         = KeyValue()
-    if ret['action'] == 'navigate_to_coordinate':
-        kv1.key = 'x'
-        kv1.value = str(ret['parameters']['coordinate']['x'])
-        kv2.key = "y"
-        kv2.value = str(ret['parameters']['coordinate']['y'])
-        verbalInput.params      = [kv1, kv2]
-    elif ret['action'] == 'build_landmark' or ret['action'] == 'navigate_to_landmark':
-        kv1.key = 'landmark'
-        kv1.value = str(ret['parameters']['landmark'])
-        verbalInput.params      = [kv1]
+    parameter_keys = result['parameters'].keys()
+    parameters[]
+    for key in parameter_keys:
+        new_param       = KeyValue()
+        new_param.key   = key
+        new_param.value = result['parameters'][key]
+        parameters.append[new_param]
+    verbalInput.parameters = parameters
     return verbalInput
 
 
@@ -103,8 +94,8 @@ def build_response(response, sockInfo):
 
 if __name__ == "__main__":
     root = "https://api.ai/v1/"
-    server_ip_address = sys.argv[2] 
-    
+    server_ip_address = sys.argv[2]
+
     query = root + "query"
     payload = {
             "clientToken":"d87cfe9b43a74fb19f8ebd01bc7cca12",
