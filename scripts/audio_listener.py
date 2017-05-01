@@ -8,6 +8,21 @@ import time
 from parser import parse_args
 from socket_handler import *
 
+def run_test():
+    query = raw_input("Who would you like to command?")
+    bots_addressed = get_bots(query)
+    if bots_addressed:
+        wake_up_response = get_wake_up_response(bots_addressed)
+        vocalize.play_text_to_speech(wake_up_response)
+        query = raw_input("What would you to do?")
+        if protocol == 'UDP':
+            message = query + "|" + response_ip + "|" + str(response_port)
+            print message
+            for bot_name in bots_addressed:
+                server_ip, server_port = robot_to_info[bot_name]
+                print "Sending command to: %s" % bot_name
+                send_udp_message(server_ip, server_port, message)
+
 def background_listening(recognizer, audio):
     try:
         query = recognizer.recognize_google(audio).lower()
@@ -83,6 +98,7 @@ def main():
     if protocol == 'UDP':
         print response_ip
         print response_port
+        print type(response_port)
         socket = build_udp_server_sock(response_ip, response_port)
     try:
         # Set up audio device and start listening
@@ -92,14 +108,19 @@ def main():
             r.adjust_for_ambient_noise(source)
             r.dynamic_energy_threshold = True
             r.pause_threshold = 0.5
-        stop_listening = r.listen_in_background(m, background_listening)
+
+        if not test:
+            stop_listening = r.listen_in_background(m, background_listening)
 
         while True:
+            if test:
+                run_test()
             handle_responses(socket)
 
     finally:
         socket.close()
-        stop_listening()
+        if not test:
+            stop_listening()
 
 if __name__ == '__main__':
     protocol        = 'UDP' # Might want to implment TCP if outside of LAN
