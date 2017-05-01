@@ -35,9 +35,6 @@ def respond(socket, response):
     print "SENING AN AUDIO RESPONSE"
     socket.send(response)
 
-    ##use api.ai to resolve it to a wav file and then send it as a wav. Might want to
-    ##do this with async
-
 def handleResponse(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
@@ -106,8 +103,9 @@ def build_response(response, sockInfo):
 
 if __name__ == "__main__":
     root = "https://api.ai/v1/"
+    server_ip_address = sys.argv[2] 
+    
     query = root + "query"
-
     payload = {
             "clientToken":"d87cfe9b43a74fb19f8ebd01bc7cca12",
             "devToken"    :"4eab53055a564438917c196c9a0bc37e",
@@ -133,7 +131,7 @@ if __name__ == "__main__":
     #MULTIPLE CLIENTS USING MULTIPLE PROTOCOL SHOULD BE POSSIBLE! I
     #THINK THE SOCKETS ARE Protocol/IP/Port specific
     if protocol == 'UDP':
-        servSock = buildUDPServerSock("128.59.15.68", int(sys.argv[1]))
+        servSock = buildUDPServerSock(server_ip_address, int(sys.argv[1]))
     elif protocol == 'TCP':
         servSock = buildTCPServerSock("128.59.15.68", int(sys.argv[1])) #This ip/port should be a ROS parameter
         servSock.listen(5)
