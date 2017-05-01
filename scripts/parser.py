@@ -12,9 +12,9 @@ def parse_args():
 
 def create_parser(parser):
     parser.add_argument(metavar='client-ip',
-        dest='client_ip')
+        dest='response_ip')
     parser.add_argument(metavar='client-port',
-        dest='client_port', type=int)
+        dest='response_port', type=int)
     parser.add_argument('-t', '--test', action='store_true')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-m', '--multiple',
