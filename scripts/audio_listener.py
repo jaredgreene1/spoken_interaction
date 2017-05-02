@@ -116,7 +116,7 @@ def main():
             if test:
                 run_test()
             handle_responses(socket)
-
+            time.sleep(.3)
     finally:
         socket.close()
         if not test:
