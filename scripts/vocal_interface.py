@@ -12,6 +12,8 @@ from socket_handler import *
 from random import choice
 from string import ascii_lowercase
 
+import argparse
+
 API_AI_CLIENT_ACCESS_TOKEN = 'd87cfe9b43a74fb19f8ebd01bc7cca12'
 generate_session_id   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
 index1      = lambda lst: [i[0] for i in lst]
@@ -35,7 +37,7 @@ def handle_query(socket):
     print processed_query
     print "prcoessing"
     ros_query = build_response(processed_query, client_info)
-    print ros_query 
+    print ros_query
     command_pub.publish(ros_query)
 
 def resolve_query_with_api_ai(text_to_process, api_id):
@@ -90,11 +92,19 @@ def main():
     finally:
         serv_sock.close()
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(dest='server_host', metavar='server-host')
+    parser.add_argument(dest='server_port', metavar='server-port', type=int)
+    parser.add_argument('-c', '--client-tokens', nargs='*')
+    return parser.parse_args()
+
 if __name__ == "__main__":
     rospy.init_node("vocal_request_handler")
     command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
     response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handle_response)
     socks       = []
-    server_port_number = int(sys.argv[1])
-    server_ip_address  = sys.argv[2]
+    args = parse_args()
+    server_port_number = args.server_port
+    server_ip_address  = args.server_host
     main()
