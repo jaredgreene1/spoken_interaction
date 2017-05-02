@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import pprint
 import requests
 import rospy
 import time
@@ -16,11 +15,10 @@ import argparse
 
 API_AI_CLIENT_ACCESS_TOKEN = 'd87cfe9b43a74fb19f8ebd01bc7cca12'
 generate_session_id   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
-index1      = lambda lst: [i[0] for i in lst]
 BUFFER_SIZE = 4092
 protocol = 'UDP'
 
-def handle_response(response):
+def handle_action_response(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
     msg = response.verbal_response
@@ -28,16 +26,14 @@ def handle_response(response):
         send_udp_message(ip, int(port), msg)
 
 def handle_query(socket):
-    #TODO add a logger out here
     if protocol == 'UDP':
         query, client_info = socket.recvfrom(BUFFER_SIZE)
         msg, response_ip, response_port = query.split("|")
         client_info = (response_ip, response_port)
+    rospy.loginfo("Verbal Command Received.")
+    rospy.loginfo("Client Information:" + str(client_info))
     processed_query = resolve_query_with_api_ai(msg, API_AI_CLIENT_ACCESS_TOKEN)
-    print processed_query
-    print "prcoessing"
     ros_query = build_response(processed_query, client_info)
-    print ros_query
     command_pub.publish(ros_query)
 
 def resolve_query_with_api_ai(text_to_process, api_id):
@@ -102,9 +98,10 @@ def parse_args():
 if __name__ == "__main__":
     rospy.init_node("vocal_request_handler")
     command_pub = rospy.Publisher("verbal_input", VerbalRequest, queue_size = 20)
-    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handle_response)
+    response_sub = rospy.Subscriber("verbal_response", VerbalResponse, handle_action_response)
     socks       = []
     args = parse_args()
+    print(args)
     server_port_number = args.server_port
     server_ip_address  = args.server_host
     main()
