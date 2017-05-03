@@ -18,10 +18,14 @@ API_AI_CLIENT_ACCESS_TOKEN = 'd87cfe9b43a74fb19f8ebd01bc7cca12'
 generate_session_id   = lambda x: ''.join(choice(ascii_lowercase) for i in range(x))
 BUFFER_SIZE = 4092
 
+respond_directly = ['domain']
+
 def handle_action_response(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
     msg = response.verbal_response
+    
+    print(response)
     respond_to_client(msg, ip, int(port))
 
 def respond_to_client(msg, ip, port):
@@ -39,9 +43,10 @@ def read_socket_and_resolve_query(socket):
     source = str(processed_query['result']['source'])
     process_resolved_query(processed_query, client_info, source)
 
-def process_resolved_query(processed_query, client_info, source)
+def process_resolved_query(processed_query, client_info, source):
     response = "I heard your request, thank you!"
-    if 'speech' in = processed_query['result']['fulfillment']:
+    if 'fulfillment' in processed_query['result'] and 'speech' in processed_query[
+            'result']['fulfillment']:
         response = processed_query['result']['fulfillment']['speech']
     if source in respond_directly:
         respond_to_client(response, client_info[0], int(client_info[1]))

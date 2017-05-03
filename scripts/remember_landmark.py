@@ -46,7 +46,7 @@ def already_known(lm_known, lm_new, current_pos):
             return False
 
 
-def construct_landmark(lm_known, lm_new, lm_pub):
+def construct_landmark(lm_new, lm_pub):
     pos = curr_global_pose.position
     #tfPub = tf2_ros.StaticTransformBroadcaster()
     t = TransformStamped()
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         move_base = MoveBaseClient()
         global_location = rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, storeLoc)
         landmark_marker = rospy.Publisher("landmarks", Marker, queue_size=10)
-        vocal_resolver = VocalResolver(move_base, construct_landmark)
+        vocal_resolver = VocalResolver(lm_known)
         rospy.spin()
 
     # Make sure we save any new landmarks we learned about today
