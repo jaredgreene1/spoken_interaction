@@ -24,9 +24,10 @@ def handle_action_response(response):
     ip = response.clientInfo.ip
     port = response.clientInfo.port
     msg = response.verbal_response
-    
-    print(response)
-    respond_to_client(msg, ip, int(port))
+    try:
+        respond_to_client(msg, ip, int(port))
+    except ValueError:
+        rospy.loginfo("Invalid client port number")
 
 def respond_to_client(msg, ip, port):
     if protocol == 'UDP':

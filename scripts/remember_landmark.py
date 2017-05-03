@@ -11,7 +11,7 @@ import ast
 from datetime import datetime
 import random
 from math import sin, cos, fabs
-from landmark_vocal_resolution import *
+from landmark_vocal_resolution import * 
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped, TransformStamped, PoseWithCovarianceStamped, Point
@@ -21,6 +21,7 @@ from spoken_interaction.msg import VerbalRequest, VerbalResponse, KeyValue
 from visualization_msgs.msg import Marker
 
 areaThreshold = 5
+lm_known = {}
 
 def storeLoc(global_location):
     global curr_global_pose
@@ -45,6 +46,8 @@ def already_known(lm_known, lm_new, current_pos):
         else:
             return False
 
+def make_landmark(lm_new):
+    return construct_landmark(lm_new, landmark_marker)
 
 def construct_landmark(lm_new, lm_pub):
     pos = curr_global_pose.position
@@ -75,7 +78,7 @@ def construct_landmark(lm_new, lm_pub):
         mrk.id = int(random.random()*1000)
         mrk.type = 9
         mrk.action = 0
-        mrk.pose = globalPose
+        mrk.pose = curr_global_pose 
         mrk.pose.orientation.w = 1
         mrk.scale.x = 5
         mrk.scale.y = 0
@@ -90,6 +93,18 @@ def construct_landmark(lm_new, lm_pub):
         lm_pub.publish(mrk)
         return True
 
+def move_to_landmark(lm, lm_known, move_base):
+    if lm in lm_known:
+        point = Point()
+        nav_lm = lm_known[lm]
+        point.x = nav_lm.x
+        point.y = nav_lm.y
+        move_base.goto(point, 0)
+        return True
+    else:
+        return False
+
+
 class MoveBaseClient(object):
     def __init__(self):
         self.client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
@@ -98,6 +113,8 @@ class MoveBaseClient(object):
         rospy.loginfo("have move base")
     def goto(self, lm_pos, theta, frame="map"):
         move_goal = MoveBaseGoal()
+        print lm_pos
+        print type(lm_pos)
         move_goal.target_pose.pose.position.x = lm_pos.x
         move_goal.target_pose.pose.position.y = lm_pos.y
         move_goal.target_pose.pose.orientation.z = sin(theta/2.0)
@@ -117,6 +134,7 @@ def handle_exit():
 if __name__ == "__main__":
     rospy.init_node("remember_landmark")
     curr_global_pose = None
+    global lm_known
 
     # Load known landmarks for the map
     if sys.argv == 1:
@@ -131,7 +149,7 @@ if __name__ == "__main__":
         move_base = MoveBaseClient()
         global_location = rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, storeLoc)
         landmark_marker = rospy.Publisher("landmarks", Marker, queue_size=10)
-        vocal_resolver = VocalResolver(lm_known)
+        vocal_resolver = VocalResolver(lm_known, move_base, make_landmark)
         rospy.spin()
 
     # Make sure we save any new landmarks we learned about today
