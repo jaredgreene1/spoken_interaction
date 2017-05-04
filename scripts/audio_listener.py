@@ -46,7 +46,8 @@ def run_test():
     bots_addressed = get_bots(query)
     if bots_addressed:
         wake_up_response = get_wake_up_response(bots_addressed)
-        vocalize.play_text_to_speech(wake_up_response, AUDIO_LOCK)
+        #vocalize.play_text_to_speech(wake_up_response, AUDIO_LOCK)
+        print wake_up_response
         query = raw_input("What do you command?")
         if query.lower() == 'exit':
             exit(0)
