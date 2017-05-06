@@ -1,0 +1,9 @@
+TV: !!python/object/new:geometry_msgs.msg._Point.Point
+  state: [-3.0825082923099414, -0.8519236489582243, 0.0]
+s the start: !!python/object/new:geometry_msgs.msg._Point.Point
+  state: [-3.0249710639460985, -0.8465240629849974, 0.0]
+start: !!python/object/new:geometry_msgs.msg._Point.Point
+  state: [-0.30332552295242005, 0.0031420081456889405, 0.0]
+start location: &id001 !!python/object/new:geometry_msgs.msg._Point.Point
+  state: [-0.30042049523486475, -0.005522684017623067, 0.0]
+your start location: *id001
